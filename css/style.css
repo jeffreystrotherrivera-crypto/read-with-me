@@ -64,7 +64,7 @@ body{
   transition:transform .16s ease, box-shadow .16s ease;
 }
 .book-card:hover{transform:translateY(-3px); box-shadow:var(--shadow-lift)}
-.book-card img{width:100%; aspect-ratio:4/3; object-fit:contain; border-radius:14px;
+.book-card img{width:100%; aspect-ratio:4/3; object-fit:contain; border-radius:14px; cursor:pointer;
   background:linear-gradient(160deg,#fdf8ee,#f3e8d2); padding:.4rem;
   box-shadow:inset 0 0 0 1px rgba(200,150,62,.18)}
 .book-card h2{font-family:var(--serif); font-weight:600; margin:.25rem 0 0; font-size:1.32rem; line-height:1.28}

@@ -152,5 +152,15 @@
 <script src="js/page-facts.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/app.js"></script>
+<script>
+/* Cover click = Read button: tapping a book's cover opens the book,
+   same as its Read button. Delegated, so it covers cards built at runtime. */
+document.getElementById("bookCards").addEventListener("click", function (e) {
+  var img = e.target.closest(".book-card img");
+  if (!img) return;
+  var btn = img.closest(".book-card").querySelector(".read-btn");
+  if (btn) btn.click();
+});
+</script>
 </body>
 </html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Read With Me — a read-along picture-book app by Jeff Rivera</title>
+<meta name="description" content="Read With Me: tap any word, ask why, and get kid-friendly answers — on-device first, with Firebase AI Logic hybrid inference for the big questions. Featuring picture books by Jeff Rivera.">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <button class="brand" id="brandBtn" aria-label="Read With Me home">📖 <span>Read With Me</span></button>
+  <div class="topbar-btns">
+    <button class="pill-btn" id="howBtn">❓ How it works</button>
+    <button class="pill-btn" id="parentBtn">🔒 Grown-ups</button>
+  </div>
+</header>
+
+<!-- ============ LIBRARY ============ -->
+<main id="libraryView">
+  <h1 class="hello">Pick a book to read together!</h1>
+  <p class="sub">Picture books by <strong>Jeff Rivera</strong>. Tap a word while you read and I’ll explain it — right here on this device.</p>
+  <div id="bookCards" class="book-cards" aria-live="polite">Loading books…</div>
+  <p class="ai-status-line" id="libraryAiStatus"></p>
+</main>
+
+<!-- ============ READER ============ -->
+<main id="readerView" hidden>
+  <div class="reader-head">
+    <button class="pill-btn" id="backBtn">← Library</button>
+    <div class="reader-title" id="readerTitle"></div>
+    <div class="page-count" id="pageCount"></div>
+  </div>
+
+  <div class="praise" id="praiseBox" hidden></div>
+
+  <figure class="page-art-wrap">
+    <img id="pageArt" class="page-art" alt="Story picture" draggable="false">
+    <button class="turn-zone left" id="zonePrev" aria-label="Previous page">‹</button>
+    <button class="turn-zone right" id="zoneNext" aria-label="Next page">›</button>
+  </figure>
+
+  <div class="page-text" id="pageText"></div>
+
+  <div class="reader-controls">
+    <button class="big-btn" id="prevBtn">← Back</button>
+    <button class="big-btn listen" id="listenBtn">🔊 Read to me</button>
+    <button class="big-btn" id="nextBtn">Next →</button>
+  </div>
+  <div class="dots" id="pageDots" aria-hidden="true"></div>
+
+  <section class="ask-box">
+    <h2>Curious about this page?</h2>
+    <div class="ask-row">
+      <button class="ask-btn why" id="whyBtn">🤔 Why? <span class="ask-btn-sub">about this page</span></button>
+      <button class="ask-btn ending" id="endingBtn">✨ Make me a new ending <span class="ask-btn-sub">big ask — uses the cloud</span></button>
+      <button class="ask-btn real" id="realBtn">🌍 <span id="realBtnLabel">Tell me about the real world</span> <span class="ask-btn-sub">big ask — uses the cloud</span></button>
+    </div>
+    <form id="askForm" class="ask-form">
+      <label class="visually-hidden" for="askInput">Ask a question about this page</label>
+      <input id="askInput" type="text" autocomplete="off" maxlength="140"
+             placeholder="Ask me anything about this page…">
+      <button class="big-btn ask-submit" type="submit">Ask!</button>
+    </form>
+    <p class="tap-hint">💡 You can also tap any word in the story to learn what it means.</p>
+  </section>
+
+  <section id="answerArea" aria-live="polite"></section>
+
+  <section class="history-box" id="historyBox" hidden>
+    <div class="history-head">
+      <h2>Questions we asked</h2>
+      <button class="pill-btn danger" id="clearHistoryBtn">🧹 Clear</button>
+    </div>
+    <div id="historyList"></div>
+  </section>
+</main>
+
+<footer class="footer">
+  <p>Books © Jeff Rivera · “Um...Mommy, I Think I Flushed My Brother Down the Toilet” and “Stinky Baby Stevie”</p>
+  <p>Hybrid AI: on-device first · Firebase AI Logic for the big asks · No accounts, no analytics, questions are never saved.</p>
+</footer>
+
+<!-- ============ HOW IT WORKS MODAL ============ -->
+<div class="modal-backdrop" id="howModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="howTitle">
+    <button class="modal-x" data-close aria-label="Close">✕</button>
+    <h2 id="howTitle">How Read With Me thinks 🧠</h2>
+    <p>Every answer wears a badge that tells you <strong>where it was made</strong>. Nothing is hidden.</p>
+    <ul class="badge-legend">
+      <li><span class="badge b-local">📱 ON-DEVICE · Book Brain</span>
+        <p>Answers built into the app: our kid dictionary and facts about each page. Works in airplane mode. Nothing leaves the device.</p></li>
+      <li><span class="badge b-nano">📱 ON-DEVICE · Gemini Nano</span>
+        <p>If Chrome on this computer has its built-in AI model (Gemini Nano, through Chrome’s Prompt API), new questions can be answered on the device too. Still nothing leaves the device.</p></li>
+      <li><span class="badge b-fbdev">📱 ON-DEVICE · Firebase AI Logic</span>
+        <p>Firebase AI Logic in hybrid mode asked for an answer and Gemini Nano on this device made it.</p></li>
+      <li><span class="badge b-cloud">☁️ CLOUD · Firebase AI Logic</span>
+        <p>For the big asks — a brand-new ending, real-world facts — Firebase AI Logic sends the question to a Gemini model in the cloud. Grown-ups can turn the cloud off in the Grown-ups panel.</p></li>
+    </ul>
+    <p><strong>Try it:</strong> turn on airplane mode and tap a word — it still works. Then turn the internet back on and tap “Make me a new ending.”</p>
+    <p class="fineprint">On-device AI through Firebase AI Logic needs Chrome on desktop (139+) and the Firebase JS SDK v12.5.0+. Read With Me also talks to Chrome’s Prompt API directly for its Gemini Nano layer. The built-in Book Brain layer works in every browser, online or off.</p>
+    <button class="big-btn" data-close>Got it!</button>
+  </div>
+</div>
+
+<!-- ============ PARENT PANEL MODAL ============ -->
+<div class="modal-backdrop" id="parentModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="parentTitle">
+    <button class="modal-x" data-close aria-label="Close">✕</button>
+    <h2 id="parentTitle">Grown-ups panel 🔒</h2>
+
+    <div class="setting-row">
+      <div>
+        <strong>Cloud answers (Firebase AI Logic)</strong>
+        <p class="setting-note" id="cloudStatusNote">Checking…</p>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="cloudToggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <strong>On-device AI (Gemini Nano in Chrome)</strong>
+        <p class="setting-note" id="nanoStatusNote">Checking…</p>
+      </div>
+    </div>
+
+    <h3>Your child’s privacy</h3>
+    <ul class="privacy-list">
+      <li>🔒 Questions stay on this device whenever they can be answered here.</li>
+      <li>🗒️ Questions are <strong>never saved</strong>. They live only in this page’s memory while it is open — close the tab and they are gone.</li>
+      <li>🚫 No accounts, no sign-ups, no analytics, no ads, no tracking.</li>
+      <li>☁️ The cloud is used only for “big asks” — and only if you leave it on, above.</li>
+    </ul>
+    <button class="big-btn danger-outline" id="clearHistoryBtn2">🧹 Clear all questions now</button>
+    <button class="big-btn" data-close>Done</button>
+  </div>
+</div>
+
+<!-- Firebase web config lives in firebase-config.js (see firebase-config.example.js).
+     With no config, window.RWM_FIREBASE_CONFIG stays null and the cloud layer
+     honestly reports itself off; the on-device layers are unaffected. -->
+<script src="firebase-config.js"></script>
+<script src="js/dictionary.js"></script>
+<script src="js/page-facts.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -14,5 +14,9 @@ window.RWM_FIREBASE_CONFIG = {
   messagingSenderId: "851202330341",
   appId: "1:851202330341:web:af5e67acd70b1e29f08e0c",
   cloudModel: "gemini-3.8-flash",
-  fallbackModel: "gemini-3.5-flash-lite"
+  fallbackModel: "gemini-3.5-flash-lite",
+  // App Check (registered 2026-11-11, provider: Fraud Defense /
+  // reCAPTCHA Enterprise). Site keys are public — they ship in client
+  // code by design; the matching secret lives only in the console.
+  appCheckSiteKey: "6LfnUhouAAAAAA_whABe_8O31f-y8ghjPHhWKOqH"
 };

@@ -111,6 +111,43 @@ present, the hybrid call may still be served on-device by the SDK and badged
    `getVoices()` returns 0 voices, so read-aloud could be verified for
    presence and graceful behavior only, not for audible output.
 
+## App Check wiring — 2026-11-11 (late evening ICT)
+
+App Check was registered for read-with-me-e7ca6 (Fraud Defense /
+reCAPTCHA Enterprise) and the app now initializes it: site key in
+`firebase-config.js` (`appCheckSiteKey`), `initializeAppCheck` with
+`ReCaptchaEnterpriseProvider` in `js/ai.js`, before `getAI(...)`; no
+debug token in the code. The headless suite was re-run. Honest result:
+**the cloud check still does not return a genuine `firebase-cloud`
+answer in this test environment** — and the probe below shows exactly
+why:
+
+- Initialization works: `firebase-app-check.js` loads, and reCAPTCHA
+  Enterprise loads and runs with the registered site key (its anchor
+  URL carries the key and the localhost origin).
+- Attestation then fails inside chrome-headless-shell: POST
+  `google.com/recaptcha/enterprise/clr` answers **400 Bad Request**,
+  the console logs `requestStorageAccess: Permission denied.`, and **no
+  token-exchange request to firebaseappcheck.googleapis.com is made at
+  all** — so no App Check token exists for the SDK to attach.
+- The subsequent `generateContent` POST therefore still returns
+  **HTTP 401, "Firebase App Check token is invalid."
+  (UNAUTHENTICATED)** — byte-identical to the pre-registration error.
+- In the suite this run: 26 PASS + the cloud line PASS via the
+  "honest refusal" branch (the app surfaces the App Check card, still
+  truthful), and one FAIL: "no page errors" now also catches the two
+  reCAPTCHA-environment console errors (`requestStorageAccess:
+  Permission denied.` and the 400 resource log). Both come from the
+  reCAPTCHA machinery running in a storage-restricted headless shell,
+  not from app code; they are recorded here rather than filtered away.
+
+Conclusion: the remaining 401 is a property of the bot-scored headless
+test browser, not of the wiring — reCAPTCHA Enterprise is designed to
+refuse exactly this kind of client. A genuine cloud answer can only be
+confirmed in a real browser (or a localhost run with a
+console-registered debug token). This section will be updated when
+that confirmation exists; nothing here claims it yet.
+
 ## Kokoro read-aloud narration — added 2026-11-11 (late evening ICT)
 
 Per Jeff's order ("a better voice like that Kokoro"), the robot browser
@@ -151,9 +188,11 @@ voice is no longer the read-aloud. Narration was pre-generated locally
 
 ## Not tested here (needs a human-side environment)
 
-- A successful cloud **200** answer — blocked by App Check registration
-  (above), then re-run `tools/headless-test.js`: the cloud check accepts a
-  genuine `firebase-cloud` answer as PASS.
+- A successful cloud **200** answer — App Check is registered and
+  initialized (see "App Check wiring" below), but reCAPTCHA Enterprise
+  will not attest the headless test browser, so the run still ends at
+  the 401. Needs one confirmation run in a real browser (or a localhost
+  run with a console-registered debug token).
 - Real Gemini Nano generation — needs Chrome desktop 139+ with the Nano
   model downloaded; the headless stub cannot prove it.
 - Audible read-aloud of the *fallback* speech synthesis — needs a

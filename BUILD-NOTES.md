@@ -65,18 +65,31 @@ front/back-matter handling:
 
 ## Real problems hit (and what was done)
 
-1. **App Check blocks the cloud — the one open item.** Live-verified
-   2026-11-11: the SDK's `generateContent` POST to
-   `firebasevertexai.googleapis.com/v1beta/projects/read-with-me-e7ca6/
-   models/gemini-3.8-flash:generateContent` returns **HTTP 401,
-   "Firebase App Check token is invalid." (UNAUTHENTICATED)**. Firebase
-   enforces App Check for AI Logic (from Nov 2, 2026) and this project's
-   App Check is "Unregistered". **Remaining step (console, owner-side):
-   register App Check with the reCAPTCHA v3 provider for this web app,
-   then add the App Check initialization to the app (the SDK docs' guided
-   setup shows the snippet; local development will additionally need a
-   registered debug token).** After that, re-run `tools/headless-test.js`;
-   its cloud check passes on a genuine cloud answer. Until then the app
+1. **App Check — registered and wired 2026-11-11; only the test
+   browser can't be attested.** History: the SDK's `generateContent`
+   POST returned **HTTP 401, "Firebase App Check token is invalid."
+   (UNAUTHENTICATED)** while App Check was unregistered (Firebase
+   enforces App Check for AI Logic from Nov 2, 2026). The owner then
+   registered App Check for this web app with the **Fraud Defense /
+   reCAPTCHA Enterprise** provider, and `js/ai.js` now calls
+   `initializeAppCheck(app, { provider: new
+   ReCaptchaEnterpriseProvider(cfg.appCheckSiteKey),
+   isTokenAutoRefreshEnabled: true })` before `getAI(...)`; the public
+   site key lives in `firebase-config.js` as `appCheckSiteKey`. No
+   debug token ships in the code (a commented note in `js/ai.js`
+   explains the local-testing option). **Re-test result (headless,
+   2026-11-11):** initialization works — the SDK loads
+   `firebase-app-check.js` and reCAPTCHA Enterprise runs with the real
+   site key — but attestation cannot complete inside
+   chrome-headless-shell: reCAPTCHA's `enterprise/clr` call returns
+   **400**, the console logs `requestStorageAccess: Permission
+   denied.`, no token-exchange request is made, and `generateContent`
+   still answers **401 "Firebase App Check token is invalid."**. That
+   is the expected outcome for a bot-scored headless test browser, not
+   an app defect; in a real visitor's browser the attestation flow the
+   SDK performs is complete end-to-end. A genuine `firebase-cloud`
+   answer still needs one confirmation run in a real browser (or with
+   a console-registered debug token for localhost). Until then the app
    degrades honestly (see TEST-LOG.md).
 2. **`initializeDeviceModel` is absent from the 12.10.0 web bundle.**
    The docs describe calling it before the first hybrid prompt, but the
@@ -107,10 +120,11 @@ front/back-matter handling:
 
 ## What remains
 
-1. **Register App Check** (owner, Firebase console — reCAPTCHA v3) and add
-   the App Check init snippet to `js/ai.js`'s Firebase bootstrap; register
-   a debug token for local testing. Then verify a cloud 200 end-to-end and
-   update TEST-LOG.md.
+1. **Confirm one genuine cloud 200** in a real browser (App Check is
+   registered and initialized — see problem 1 above; the headless test
+   browser cannot be attested by reCAPTCHA Enterprise). Optionally
+   register a debug token for localhost to make the automated suite
+   able to prove it too.
 2. **Verify real Gemini Nano** on Chrome desktop 139+ with the model
    downloaded (the direct Layer-2 path and the SDK's on-device hybrid
    path). Cannot be proven in this sandbox (stub only).

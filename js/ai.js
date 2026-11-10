@@ -203,6 +203,25 @@
       var appMod = await import(FB_BASE + "firebase-app.js");
       var aiMod = await import(FB_BASE + "firebase-ai.js");
       var app = appMod.initializeApp(cfg);
+      // App Check MUST be initialized before any AI Logic call:
+      // enforcement is on for this project and un-attested calls are
+      // rejected (verified live: HTTP 401 "Firebase App Check token is
+      // invalid"). Registered 2026-11-11 with the Fraud Defense /
+      // reCAPTCHA Enterprise provider; the site key is public and
+      // lives in firebase-config.js.
+      // Local testing note: to run against localhost with a debug
+      // token, register the token in the console (App Check → Apps →
+      // Manage debug tokens) and set self.FIREBASE_APPCHECK_DEBUG_TOKEN
+      // in the page BEFORE this script loads. Debug tokens are for
+      // local development only and must never ship in production code,
+      // which is why none is set here.
+      if (cfg.appCheckSiteKey) {
+        var acMod = await import(FB_BASE + "firebase-app-check.js");
+        acMod.initializeAppCheck(app, {
+          provider: new acMod.ReCaptchaEnterpriseProvider(cfg.appCheckSiteKey),
+          isTokenAutoRefreshEnabled: true
+        });
+      }
       fb.aiMod = aiMod;
       fb.ai = aiMod.getAI(app, { backend: new aiMod.GoogleAIBackend() });
       fb.state = "ready";
@@ -391,14 +410,17 @@
     }
     var errMsg = String((hyErr && (hyErr.message || hyErr)) || "");
     if (/app ?check/i.test(errMsg)) {
-      // Verified live 2026-11-11 against project read-with-me-e7ca6:
-      // firebasevertexai.googleapis.com answered HTTP 401
-      // "Firebase App Check token is invalid." (UNAUTHENTICATED) —
-      // App Check enforcement for AI Logic is on and this app's
-      // App Check is not registered yet. Registration is a console
-      // step owned by the project owner; see BUILD-NOTES.md.
+      // History, verified live 2026-11-11 against read-with-me-e7ca6:
+      // before App Check was registered, firebasevertexai.googleapis.com
+      // answered HTTP 401 "Firebase App Check token is invalid."
+      // (UNAUTHENTICATED). App Check was registered later that day
+      // (Fraud Defense / reCAPTCHA Enterprise) and this app initializes
+      // it in ensureFirebase() before calling getAI. If this branch is
+      // reached now, attestation itself was rejected (e.g. an
+      // environment reCAPTCHA scores as a bot) — the honest card below
+      // still applies.
       return {
-        text: "The cloud storyteller is locked right now. Firebase answered: “App Check token is invalid” — a grown-up still needs to register App Check for this app in the Firebase console before big asks can travel to the cloud. Everything on this device — reading, word taps, Why? questions — still works!",
+        text: "The cloud storyteller is locked right now. Firebase answered: “App Check token is invalid” — this browser could not prove it is a real visitor, so the cloud would not answer. Everything on this device — reading, word taps, Why? questions — still works!",
         source: "offline"
       };
     }

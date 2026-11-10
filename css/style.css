@@ -52,6 +52,31 @@ body{
 .pill-btn:active{transform:scale(.96)}
 .pill-btn.danger{border-color:#eec5c5; color:#b03030}
 
+/* ---------- hero banner ---------- */
+.hero{
+  display:flex; align-items:center; gap:1.4rem; overflow:hidden;
+  background:linear-gradient(120deg, #fdf3da 0%, #f7e7c3 46%, #e2f0ea 100%);
+  border:1px solid var(--line); border-radius:26px; box-shadow:var(--shadow);
+  padding:1.6rem 1.6rem 1.5rem; margin-bottom:1.6rem; position:relative;
+}
+.hero::after{content:""; position:absolute; inset:auto -60px -90px auto; width:260px; height:260px;
+  border-radius:50%; background:radial-gradient(circle, rgba(200,150,62,.22), transparent 65%)}
+.hero-text{flex:1; min-width:min(300px,100%); position:relative; z-index:1}
+.hero .hello{margin-top:0}
+.hero .sub{margin-bottom:0}
+.hero-covers{display:flex; align-items:center; position:relative; z-index:1; padding-right:.4rem}
+.hero-covers img{
+  width:158px; height:auto; border-radius:8px; background:#fff;
+  border:6px solid #fff; box-shadow:0 14px 30px rgba(90,60,10,.28);
+}
+.hero-covers .tilt-l{transform:rotate(-5deg)}
+.hero-covers .tilt-r{transform:rotate(4deg); margin-left:-26px; width:132px}
+@media (max-width:640px){
+  .hero{flex-direction:column; align-items:flex-start; padding:1.3rem 1.2rem}
+  .hero-covers img{width:128px}
+  .hero-covers .tilt-r{width:108px}
+}
+
 /* ---------- library ---------- */
 #libraryView, #readerView{width:min(880px,100%); margin:0 auto; padding:1.4rem 1rem 1rem; flex:1}
 .hello{font-family:var(--serif); font-weight:600; font-size:clamp(1.9rem,5.4vw,2.7rem);

@@ -23,8 +23,16 @@
 
 <!-- ============ LIBRARY ============ -->
 <main id="libraryView">
-  <h1 class="hello">Pick a book to read together!</h1>
-  <p class="sub">Picture books by <strong>Jeff Rivera</strong>. Tap a word while you read and I’ll explain it — right here on this device.</p>
+  <section class="hero">
+    <div class="hero-text">
+      <h1 class="hello">Free &amp; original picture books for kids!</h1>
+      <p class="sub">Picture books by <strong>Jeff Rivera</strong>. Read along together — tap any word while you read and I’ll explain it, right here on this device.</p>
+    </div>
+    <div class="hero-covers" aria-hidden="true">
+      <img class="tilt-l" src="books/um-mommy/cover.jpg" alt="">
+      <img class="tilt-r" src="books/stinky/cover.jpg" alt="">
+    </div>
+  </section>
   <div id="bookCards" class="book-cards" aria-live="polite">Loading books…</div>
   <p class="ai-status-line" id="libraryAiStatus"></p>
 </main>

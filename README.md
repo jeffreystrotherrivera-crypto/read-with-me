@@ -27,8 +27,10 @@ Every answer card wears a badge naming the layer that actually produced it:
 Privacy by design: no accounts, no sign-up, no analytics, nothing is stored.
 Questions live only in the page's memory while it is open, and a **Clear**
 button wipes them. A **Grown-ups panel** holds the cloud on/off toggle and the
-privacy notes. Read-aloud uses the browser's built-in speech synthesis —
-also on-device and free.
+privacy notes. Read-aloud narration is pre-recorded with the **Kokoro**
+voice (`af_heart`, generated locally by `tools/generate_audio.py`) — one
+MP3 per story page, shipped with the app, so it also works offline; the
+browser's built-in speech synthesis remains only as a fallback.
 
 ## Setup
 

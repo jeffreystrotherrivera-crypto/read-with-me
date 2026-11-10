@@ -111,6 +111,44 @@ present, the hybrid call may still be served on-device by the SDK and badged
    `getVoices()` returns 0 voices, so read-aloud could be verified for
    presence and graceful behavior only, not for audible output.
 
+## Kokoro read-aloud narration — added 2026-11-11 (late evening ICT)
+
+Per Jeff's order ("a better voice like that Kokoro"), the robot browser
+voice is no longer the read-aloud. Narration was pre-generated locally
+(the book texts are fixed) and ships with the app:
+
+- **Engine:** kokoro 0.9.4 (hexgrad/Kokoro-82M) + misaki English G2P with
+  espeak-ng 1.51, CPU-only torch, in a venv (`~/.venvs/kokoro`).
+  One setup note: HuggingFace's Xet download path stalled at 0 bytes
+  behind this sandbox's proxy; with `HF_HUB_DISABLE_XET=1` (classic
+  HTTP) the model downloaded fine. Generator: `tools/generate_audio.py`.
+- **Voice:** `af_heart` (Kokoro's warm American female storyteller
+  voice), speed 0.97. MP3, 64 kbps mono, 24 kHz source.
+- **Files:** 26 — every page that has text, in both books (Um Mommy
+  10/10 pages; Stinky 16/17 — its page 8 is a text-free picture page and
+  correctly has no recording and no `audio` field). "THE END" has its
+  own 1.2 s recording. Total **9,159,762 bytes (8.74 MiB)**; durations
+  **1.2 s – 124.4 s**, 1,142.7 s (~19 min) of narration in all.
+- **book.json integrity:** semantic diff against the pre-audio files
+  shows ONLY the 26 added `audio` fields — no text, order, or other
+  field changed.
+- **Decode/HTTP verification (real run):** every MP3 was ffprobe-decoded
+  (duration read back per page) and fetched from the locally served app:
+  **26/26 HTTP 200, 0 failures**. Spot-checked loudness with ffmpeg
+  `volumedetect`: mean ≈ −26 dB, peaks −3…−11 dB — real speech, not
+  silence.
+- **Player wiring (headless Chromium, real run):** opening Um Mommy and
+  tapping “Read to me” on story page 1 fetched
+  `books/um-mommy/audio/page-01.mp3` and the button switched to
+  “⏹ Stop reading”; turning the page while playing fetched
+  `audio/page-02.mp3` and kept reading; tapping again stopped and the
+  button reset. No page errors.
+- **Full suite re-run after the wiring: 27/27 PASS** (same list as
+  above; the read-aloud line now exercises the recorded narration).
+  Fallback behavior is unchanged in code: pages without a recording use
+  `speechSynthesis` with the best en-US voice available (Google US
+  English → natural/neural → first en-US).
+
 ## Not tested here (needs a human-side environment)
 
 - A successful cloud **200** answer — blocked by App Check registration
@@ -118,4 +156,7 @@ present, the hybrid call may still be served on-device by the SDK and badged
   genuine `firebase-cloud` answer as PASS.
 - Real Gemini Nano generation — needs Chrome desktop 139+ with the Nano
   model downloaded; the headless stub cannot prove it.
-- Audible read-aloud — needs a browser with voices.
+- Audible read-aloud of the *fallback* speech synthesis — needs a
+  browser with voices. (The recorded Kokoro narration itself is verified
+  above: files decode, fetch over HTTP, and play through page turns in
+  the headless browser, muted.)

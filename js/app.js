@@ -29,6 +29,8 @@
     book: null,        // loaded book.json data (+ meta from BOOKS)
     page: -1,          // -1 = cover page, 0..n-1 = story pages
     speaking: false,
+    speakMode: null,   // "audio" (recorded narration) | "synth" (fallback)
+    aloud: false,      // read-aloud mode: stays on across page turns
     history: []        // [{question, text, source}] — memory only, never saved
   };
 
@@ -49,30 +51,95 @@
     "offline":        { cls: "b-off",   label: "📱 ON-DEVICE · Book Brain (offline answer)" }
   };
 
-  /* ---------------- speech (browser built-in, on-device) ---------------- */
-  function stopSpeaking() {
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  /* ------------- read-aloud: recorded Kokoro narration first -------------
+     Every story page ships with narration pre-recorded with the Kokoro
+     voice (books/<id>/audio/page-NN.mp3, made by tools/generate_audio.py),
+     and the player below plays that file. The browser's built-in speech
+     synthesis is only a fallback: for the cover (no recording), for a
+     page with no recording, or if a recording fails to load. */
+  var player = null;
+  function getPlayer() {
+    if (!player) {
+      player = new Audio();
+      player.preload = "auto";
+      player.addEventListener("ended", function () {
+        if (state.speakMode === "audio") stopSpeaking();
+      });
+      player.addEventListener("error", function () {
+        if (state.speakMode === "audio" && state.speaking) {
+          state.speakMode = null; // recording would not load — fall back
+          speakText(currentReadText());
+        }
+      });
+    }
+    return player;
+  }
+  function setSpeaking(mode) {
+    state.speaking = true;
+    state.speakMode = mode;
+    $("listenBtn").classList.add("speaking");
+    $("listenBtn").textContent = "⏹ Stop reading";
+  }
+  function setNotSpeaking() {
     state.speaking = false;
+    state.speakMode = null;
     $("listenBtn").classList.remove("speaking");
     $("listenBtn").textContent = "🔊 Read to me";
   }
-  function speak(text) {
-    if (!("speechSynthesis" in window)) return false;
-    stopSpeaking();
+  function haltPlayback() { // stop sound, keep the read-aloud mode flag
+    if (player) { try { player.pause(); } catch (e) { /* noop */ } }
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    setNotSpeaking();
+  }
+  function stopSpeaking() { // full stop: sound off AND read-aloud mode off
+    state.aloud = false;
+    haltPlayback();
+  }
+  function currentAudioSrc() {
+    if (!state.book || state.page < 0) return null;
+    var p = state.book.pages[state.page];
+    return p && p.audio ? state.book._meta.dir + p.audio : null;
+  }
+  function currentReadText() {
+    if (!state.book) return "";
+    return state.page < 0
+      ? state.book.title + ". By " + state.book.author + "."
+      : currentPageText();
+  }
+  function startReading() {
+    haltPlayback();
+    var src = currentAudioSrc();
+    if (src) {
+      var pl = getPlayer();
+      pl.src = src;
+      setSpeaking("audio");
+      var pr = pl.play();
+      if (pr && pr.catch) pr.catch(function () {
+        if (state.speakMode === "audio") { state.speakMode = null; speakText(currentReadText()); }
+      });
+      return true;
+    }
+    if (!currentReadText().trim()) return true; // picture page: nothing to read
+    return speakText(currentReadText());
+  }
+  function pickVoice() {
+    var voices = window.speechSynthesis.getVoices();
+    var enUS = voices.filter(function (v) { return /^en[-_]US/i.test(v.lang); });
+    return enUS.filter(function (v) { return /google us english/i.test(v.name); })[0]
+        || enUS.filter(function (v) { return /natural|neural/i.test(v.name); })[0]
+        || enUS[0]
+        || voices.filter(function (v) { return /^en/i.test(v.lang); })[0]
+        || null;
+  }
+  function speakText(text) {
+    if (!text || !text.trim()) { setNotSpeaking(); return false; }
+    if (!("speechSynthesis" in window)) { setNotSpeaking(); return false; }
     var u = new SpeechSynthesisUtterance(text);
     u.rate = 0.95; u.pitch = 1.05;
-    var voices = window.speechSynthesis.getVoices();
-    for (var i = 0; i < voices.length; i++) {
-      if (/^en[-_]US/i.test(voices[i].lang)) { u.voice = voices[i]; break; }
-    }
-    u.onend = u.onerror = function () {
-      state.speaking = false;
-      $("listenBtn").classList.remove("speaking");
-      $("listenBtn").textContent = "🔊 Read to me";
-    };
-    state.speaking = true;
-    $("listenBtn").classList.add("speaking");
-    $("listenBtn").textContent = "⏹ Stop reading";
+    var v = pickVoice();
+    if (v) u.voice = v;
+    u.onend = u.onerror = function () { if (state.speakMode === "synth") setNotSpeaking(); };
+    setSpeaking("synth");
     window.speechSynthesis.speak(u);
     return true;
   }
@@ -235,9 +302,10 @@
       if (delta > 0 && state.page === total - 2) { /* already at end */ }
       return;
     }
-    stopSpeaking();
+    haltPlayback(); // stops the old page's sound; read-aloud mode survives
     state.page = next;
     renderPage();
+    if (state.aloud) startReading(); // read the new page too
   }
 
   /* ---------------- answers ---------------- */
@@ -393,12 +461,11 @@
     }, { passive: true });
 
     $("listenBtn").addEventListener("click", function () {
-      if (state.speaking) { stopSpeaking(); return; }
-      var text = state.page < 0
-        ? state.book.title + ". By " + state.book.author + "."
-        : currentPageText();
-      if (!speak(text)) {
-        showAnswer("🔊 Read to me", { text: "This browser does not have a reading voice built in — but a grown-up reading out loud is even better!", source: "local" });
+      if (state.speaking || state.aloud) { stopSpeaking(); return; }
+      state.aloud = true;
+      if (!startReading()) {
+        state.aloud = false;
+        showAnswer("🔊 Read to me", { text: "This page has no recorded narration, and this browser does not have a reading voice built in — but a grown-up reading out loud is even better!", source: "local" });
       }
     });
     if ("speechSynthesis" in window) window.speechSynthesis.onvoiceschanged = function () {};

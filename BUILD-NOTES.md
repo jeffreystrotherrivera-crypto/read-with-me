@@ -9,7 +9,14 @@
   app boots and reads fully offline without touching the network.
 - Books are static JSON + JPEG art under `books/`, produced by
   `tools/convert_books.py` from the author's reader-site assets.
-- Read-aloud: the browser's built-in `speechSynthesis` (free, on-device).
+- Read-aloud: narration pre-recorded with **Kokoro TTS** (kokoro 0.9.4,
+  hexgrad/Kokoro-82M, voice `af_heart`, speed 0.97, generated on CPU by
+  `tools/generate_audio.py`) — one MP3 per story page under
+  `books/<id>/audio/`, referenced by each page's `audio` field in
+  book.json; the app plays the file and keeps read-aloud going across
+  page turns. The browser's built-in `speechSynthesis` (best en-US
+  voice) is only a fallback for pages with no recording (cover, the one
+  text-free picture page) or if a file fails to load.
 
 ## What is genuinely Firebase AI Logic — and what is not
 

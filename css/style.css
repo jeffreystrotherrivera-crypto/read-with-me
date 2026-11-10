@@ -141,6 +141,10 @@ body{
   color:inherit; border-radius:6px;
 }
 .page-text .w:hover, .page-text .w:focus-visible{background:#f7ead0; outline:2px solid var(--gold)}
+.page-text .w.reading-now{
+  background:linear-gradient(180deg,#ffe9a8,#ffd964); color:#4a3200; border-radius:6px;
+  box-shadow:0 0 0 2px rgba(200,150,62,.35); transition:background .12s ease;
+}
 .page-text .empty-note{color:#9a8563; font-size:1.05rem}
 .reader-controls{display:flex; gap:.6rem; margin-top:1rem; flex-wrap:wrap}
 .big-btn{

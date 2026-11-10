@@ -71,6 +71,9 @@
           speakText(currentReadText());
         }
       });
+      player.addEventListener("timeupdate", updateWordHighlight);
+      player.addEventListener("pause", clearWordHighlight);
+      player.addEventListener("ended", clearWordHighlight);
     }
     return player;
   }
@@ -88,6 +91,7 @@
   }
   function haltPlayback() { // stop sound, keep the read-aloud mode flag
     if (player) { try { player.pause(); } catch (e) { /* noop */ } }
+    if (typeof clearWordHighlight === "function") clearWordHighlight();
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     setNotSpeaking();
   }
@@ -100,6 +104,51 @@
     var p = state.book.pages[state.page];
     return p && p.audio ? state.book._meta.dir + p.audio : null;
   }
+
+  /* ---- read-along word highlighting ---------------------------------
+     Each recording has a timing file (audio/page-NN.timing.json, built
+     by tools/make_timings.py from the real speech spans in the MP3).
+     While the recording plays, the word being spoken gets .reading-now. */
+  var timingCache = {};   // src -> {words:[[start,end],...]} | "loading" | null
+  var timingSrc = null;   // src the loaded timings belong to
+  var hlIdx = -1;
+  function loadTimings(src) {
+    timingSrc = src;
+    hlIdx = -1;
+    if (timingCache[src] !== undefined) return;
+    timingCache[src] = "loading";
+    fetch(src.replace(/\.mp3$/, ".timing.json"))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { timingCache[src] = d; })
+      .catch(function () { timingCache[src] = null; });
+  }
+  function clearWordHighlight() {
+    if (hlIdx >= 0) {
+      var els = document.querySelectorAll("#pageText .w.reading-now");
+      for (var i = 0; i < els.length; i++) els[i].classList.remove("reading-now");
+    }
+    hlIdx = -1;
+  }
+  function updateWordHighlight() {
+    if (!player || state.speakMode !== "audio") return;
+    var d = timingCache[timingSrc];
+    if (!d || d === "loading" || !d.words) return;
+    var t = player.currentTime;
+    var words = d.words;
+    var idx = -1;
+    for (var i = 0; i < words.length; i++) {
+      if (t >= words[i][0]) idx = i; else break;
+    }
+    if (idx === hlIdx) return;
+    clearWordHighlight();
+    hlIdx = idx;
+    if (idx < 0) return;
+    var els = document.querySelectorAll("#pageText .w");
+    if (els[idx]) {
+      els[idx].classList.add("reading-now");
+      hlIdx = idx;
+    }
+  }
   function currentReadText() {
     if (!state.book) return "";
     return state.page < 0
@@ -111,6 +160,7 @@
     var src = currentAudioSrc();
     if (src) {
       var pl = getPlayer();
+      loadTimings(src);
       pl.src = src;
       setSpeaking("audio");
       var pr = pl.play();

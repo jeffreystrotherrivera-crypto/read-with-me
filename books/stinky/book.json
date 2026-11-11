@@ -125,5 +125,11 @@
    "img": "art/art-17.jpg",
    "audio": "audio/page-17.mp3"
   }
- ]
+ ],
+ "coverParas": [
+  "Stinky Binkie Baby Stevie",
+  "by Jeff Rivera",
+  "A Kids Book"
+ ],
+ "coverAudio": "audio/page-00.mp3"
 }

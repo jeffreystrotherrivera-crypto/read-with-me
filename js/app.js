@@ -1,9 +1,10 @@
 /* Read With Me — app UI: library, picture-book reader, read-aloud,
    tap-a-word, Why? button, free-form questions, big asks, answer cards
    with source badges, in-memory question history, grown-ups panel.
-   No accounts, no analytics, nothing persisted: all state (including
-   the question history and the parent cloud toggle) lives in memory
-   only and dies with the page. */
+   No accounts, no analytics. Questions and app state live in memory
+   only and die with the page; the ONE thing kept on the device is
+   where the narration stopped on each page (localStorage), so
+   pressing play again picks the story up where it left off. */
 (function () {
   "use strict";
   var AI = window.RWM.AI;
@@ -52,17 +53,66 @@
   };
 
   /* ------------- read-aloud: recorded Kokoro narration first -------------
-     Every story page ships with narration pre-recorded with the Kokoro
-     voice (books/<id>/audio/page-NN.mp3, made by tools/generate_audio.py),
-     and the player below plays that file. The browser's built-in speech
-     synthesis is only a fallback: for the cover (no recording), for a
-     page with no recording, or if a recording fails to load. */
+     Every page ships with narration pre-recorded with the Kokoro
+     voice (books/<id>/audio/page-NN.mp3, title page included as
+     page-00, made by tools/generate_audio.py), and the player below
+     plays that file. The browser's built-in speech synthesis is only
+     a fallback: for a page with no recording, or if a recording
+     fails to load. */
+
+  /* ---- narration resume positions (this device only) ----------------
+     Where the listener stopped each recording, kept in localStorage
+     so pressing play — even after leaving and coming back — resumes
+     mid-page instead of restarting from the beginning. Positions are
+     keyed by recording, so a saved spot only ever applies to its own
+     page. A recording that plays to the end forgets its position. */
+  var POS_KEY = "rwm-audio-positions-v1";
+  function posRead() {
+    try { return JSON.parse(window.localStorage.getItem(POS_KEY) || "{}") || {}; }
+    catch (e) { return {}; }
+  }
+  function posGet(src) {
+    var t = posRead()[src];
+    return (typeof t === "number" && t > 0) ? t : 0;
+  }
+  function posSet(src, t) {
+    if (!src || !(t > 0)) return;
+    try {
+      var all = posRead();
+      all[src] = Math.round(t * 100) / 100;
+      window.localStorage.setItem(POS_KEY, JSON.stringify(all));
+    } catch (e) { /* storage blocked/full: resume just won't persist */ }
+  }
+  function posClear(src) {
+    if (!src) return;
+    try {
+      var all = posRead();
+      if (src in all) {
+        delete all[src];
+        window.localStorage.setItem(POS_KEY, JSON.stringify(all));
+      }
+    } catch (e) { /* noop */ }
+  }
+
   var player = null;
+  var playerSrc = null;   // recording currently loaded in the player
+  var lastPosSave = 0;    // last currentTime written to localStorage
+  function savePosNow() {
+    if (!player || !playerSrc) return;
+    var t = player.currentTime;
+    if (t > 0.25 && (!player.duration || t < player.duration - 0.25)) {
+      lastPosSave = t;
+      posSet(playerSrc, t);
+    }
+  }
   function getPlayer() {
     if (!player) {
       player = new Audio();
       player.preload = "auto";
+      window.RWM = window.RWM || {};
+      window.RWM._player = player; // test/debug hook (headless tests)
       player.addEventListener("ended", function () {
+        posClear(playerSrc); // finished naturally: next play starts fresh
         if (state.speakMode === "audio") stopSpeaking();
       });
       player.addEventListener("error", function () {
@@ -72,6 +122,15 @@
         }
       });
       player.addEventListener("timeupdate", updateWordHighlight);
+      player.addEventListener("timeupdate", function () {
+        var t = player.currentTime;
+        if (playerSrc && t > 0.25 && Math.abs(t - lastPosSave) >= 1 &&
+            (!player.duration || t < player.duration - 1)) {
+          lastPosSave = t;
+          posSet(playerSrc, t);
+        }
+      });
+      player.addEventListener("pause", savePosNow);
       player.addEventListener("pause", clearWordHighlight);
       player.addEventListener("ended", clearWordHighlight);
     }
@@ -100,7 +159,10 @@
     haltPlayback();
   }
   function currentAudioSrc() {
-    if (!state.book || state.page < 0) return null;
+    if (!state.book) return null;
+    if (state.page < 0) { // title page has its own recording (page-00)
+      return state.book.coverAudio ? state.book._meta.dir + state.book.coverAudio : null;
+    }
     var p = state.book.pages[state.page];
     return p && p.audio ? state.book._meta.dir + p.audio : null;
   }
@@ -151,9 +213,10 @@
   }
   function currentReadText() {
     if (!state.book) return "";
-    return state.page < 0
-      ? state.book.title + ". By " + state.book.author + "."
-      : currentPageText();
+    if (state.page >= 0) return currentPageText();
+    return state.book.coverParas && state.book.coverParas.length
+      ? state.book.coverParas.join(" ")
+      : state.book.title + ". By " + state.book.author + ".";
   }
   function startReading() {
     haltPlayback();
@@ -161,8 +224,28 @@
     if (src) {
       var pl = getPlayer();
       loadTimings(src);
+      playerSrc = src;
+      lastPosSave = 0;
+      var resumeAt = posGet(src);
       pl.src = src;
       setSpeaking("audio");
+      if (resumeAt > 0) {
+        // Seek back to where this page left off as soon as the
+        // recording's length is known; a spot saved within the last
+        // moment of the track counts as finished, not as a resume.
+        var seek = function () {
+          pl.removeEventListener("loadedmetadata", seek);
+          if (state.speakMode !== "audio" || playerSrc !== src) return;
+          if (pl.duration && resumeAt >= pl.duration - 0.75) {
+            posClear(src);
+            return;
+          }
+          try { pl.currentTime = resumeAt; } catch (e) { /* not ready */ }
+          updateWordHighlight();
+        };
+        if (pl.readyState >= 1) seek();
+        else pl.addEventListener("loadedmetadata", seek);
+      }
       var pr = pl.play();
       if (pr && pr.catch) pr.catch(function () {
         if (state.speakMode === "audio") { state.speakMode = null; speakText(currentReadText()); }
@@ -279,23 +362,39 @@
     var praise = $("praiseBox");
     praise.hidden = true;
     praise.textContent = "";
+    var artWrap = document.querySelector(".page-art-wrap");
+    var textBox = $("pageText");
 
     if (state.page < 0) {
+      /* The title page is a real page of the book: the cover art
+         large in its gallery frame, and below it a full title-page
+         card — title, byline and subtitle set big, in the book's
+         display type. The spoken words are the same tappable word
+         spans story pages use, so the title recording highlights
+         them word by word like any other page. */
       art.src = book._meta.dir + book.cover;
       art.alt = "Cover of " + book.title;
-      $("pageText").innerHTML = "";
-      var t = el("p", null, "");
-      var b = el("strong", null, book.title);
-      t.appendChild(b);
-      $("pageText").appendChild(t);
-      $("pageText").appendChild(el("p", null, "by " + book.author + " · " + book.subtitle));
-      $("pageText").appendChild(el("p", "empty-note", "Tap “Next” to start the story — and remember, you can tap any word to learn what it means!"));
+      art.parentElement.style.display = "";
+      artWrap.classList.add("cover-art");
+      textBox.classList.add("title-page");
+      textBox.innerHTML = "";
+      var coverParas = book.coverParas && book.coverParas.length
+        ? book.coverParas
+        : [book.title, "by " + book.author, book.subtitle];
+      coverParas.forEach(function (para, i) {
+        var p = renderParagraph(para);
+        p.className = i === 0 ? "cover-title" : (i === 1 ? "cover-byline" : "cover-subtitle");
+        textBox.appendChild(p);
+      });
+      textBox.appendChild(el("p", "empty-note", "Tap “Next” to start the story — and remember, you can tap any word to learn what it means!"));
       if (book.praise && book.praise.length) {
         praise.hidden = false;
         praise.appendChild(el("p", null, "⭐ Grown-ups say nice things about this book:"));
         book.praise.forEach(function (line) { praise.appendChild(el("p", null, line)); });
       }
     } else {
+      artWrap.classList.remove("cover-art");
+      textBox.classList.remove("title-page");
       var page = book.pages[state.page];
       if (page.img) {
         art.src = book._meta.dir + page.img;

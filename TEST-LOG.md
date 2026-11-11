@@ -199,3 +199,68 @@ voice is no longer the read-aloud. Narration was pre-generated locally
   browser with voices. (The recorded Kokoro narration itself is verified
   above: files decode, fetch over HTTP, and play through page turns in
   the headless browser, muted.)
+
+## Pronunciation pass, narration resume, real title pages — 2026-11-11
+
+Per Jeff's orders the same day (Kokoro must read the title right and
+not mispronounce "Binkie"; stopping and restarting the narration must
+resume where it left off; the title page must be a real page, with
+highlighting, not a sliver):
+
+- **Pronunciation, evidence first.** Every flagged word in both books
+  was run through the pipeline's own G2P (KPipeline, model=False —
+  the exact phoneme strings the model consumes). Findings:
+  "Binkie" in normal case was already right (bˈɪŋki, "BINK-ee"), but
+  on Stinky's title page the all-caps "BINKIE" and "STEVIE" were
+  SPELLED OUT letter by letter (bˌiˌIˌɛnkˌAˌIˈi) — that was the
+  mispronunciation Jeff heard. Also wrong: "Job" in the dedication
+  (ʤˈɑb, the work kind; the nephew is the biblical ʤˈOb), the
+  "gi-gi-gi-normous" stutter (hard G ɡˈi; should land soft like
+  "ginormous" ʤInˈɔɹməs), and "Sssh" (spelled out, ˌɛsˌɛsˌɛsˈAʧ).
+  Verified correct as written: Stevie, Venie (vˈini — rhymes with
+  Leenie/Greenlee as the book intends), Falisha, Faseesha (Jesse's
+  baby-talk, wrong on purpose), Jesse, Jell-O, Rivera, both titles
+  in sentence case, and the whole gooshy/fellies/slobbery family.
+  Fixes live in tools/generate_audio.py as a PRONUNCIATION map that
+  respells ONLY the synthesizer input (BINKIE→Binkie, STEVIE→Stevie,
+  Job→Jobe, gi-gi-…→ji-ji-…, Sssh→Shush); the printed book text is
+  untouched (book.json semantic diff: only the new cover fields).
+  Regenerated: Stinky pages 1, 4, 13, 15, 17 + their timing files.
+  Left as-is and disclosed: the sound effects "Pfft" (G2P drops the
+  p: ft) and "Pppppppp!" — non-lexical noises no respelling fixes
+  without spelling artifacts.
+- **Title pages are real pages now.** Each book gained a Kokoro
+  title recording (audio/page-00.mp3: title, "by Jeff Rivera",
+  subtitle; Stinky's uses the title printed on its own cover —
+  "Stinky Binkie Baby Stevie"), a page-00.timing.json from
+  tools/make_timings.py, "coverParas"/"coverAudio" fields in
+  book.json, and a full-page presentation: cover art large in the
+  gallery frame (height-capped, centered) and a title-page card —
+  big Fraunces title (32.8px at 420px wide, card 432px tall for
+  Um Mommy; Stinky card 357px, art 341×545) whose words are the
+  same tappable spans story pages use, so the gold highlight
+  follows the title narration word by word (verified live in the
+  headless run: at 2.4s into Stinky's title, "Stevie" is lit).
+- **Narration resume.** Pausing/stopping keeps the position; it is
+  also kept in localStorage (key rwm-audio-positions-v1, one entry
+  per recording), so leaving and returning resumes mid-page.
+  Positions never leak across pages, a spot in the last 0.75s
+  counts as finished, and a natural finish deletes the entry.
+  Highlighting follows the resumed position from the same timing
+  data. The grown-ups panel now discloses this one remembered
+  thing; questions are still never saved.
+- **Tests.** New suite tools/headless-test-resume.js: 18/18 PASS
+  (title layout/spans/size, title narration + advancing highlight,
+  stop-saves 6.01s, resume at 7.5s, highlight at word 24 after
+  resume, resume after full reload, no cross-page leak, mid-track
+  save/resume on a second page, natural finish clears, no page
+  errors). Real-time MP3 playback advances in the headless build.
+  One environment caveat found while testing: this headless Chrome
+  drops a seek issued while the plain-python test server is still
+  streaming the file (no Range headers); production Caddy serves
+  ranges, and the app's own resume seeks — issued at
+  loadedmetadata — worked in every test. Original suite: 26/27,
+  with the single failure (requestStorageAccess denial + an HTTP
+  400 from the Firebase/App Check SDK in headless) reproduced
+  byte-for-byte on the pristine HEAD tree — pre-existing sandbox
+  noise, not a regression.

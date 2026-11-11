@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Build word-timing files for the recorded narration.
 
-For every page that has an audio file, produce audio/page-NN.timing.json:
+For every page that has an audio file, produce audio/page-NN.timing.json.
+The title page counts too: book.json's "coverAudio" gets a timing file
+built from its "coverParas" the same way.
 {"duration": <sec>, "words": [[start, end], ...]} with one entry per
 tappable word button on the page, in the exact order js/app.js renders
 them (same tokenizing rule as renderParagraph in app.js).
@@ -109,25 +111,32 @@ def timings_for(words, spans):
     return out
 
 
+def write_timing(book_dir, rel, paras, label):
+    mp3 = os.path.join(book_dir, rel)
+    words = page_words(paras)
+    dur, spans = speech_spans(mp3)
+    words_t = timings_for(words, spans)
+    out_path = os.path.join(book_dir, rel.replace(".mp3", ".timing.json"))
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump({"duration": round(dur, 3), "words": words_t}, f)
+    print(f"{label}: {len(words)} words, {dur:.1f}s, "
+          f"{len(spans)} speech spans -> {os.path.basename(out_path)}")
+
+
 def main():
     for book in BOOKS:
         book_dir = os.path.join(ROOT, "books", book)
         with open(os.path.join(book_dir, "book.json"), encoding="utf-8") as f:
             data = json.load(f)
+        if data.get("coverAudio") and data.get("coverParas"):
+            paras = [p for p in data["coverParas"] if str(p).strip()]
+            write_timing(book_dir, data["coverAudio"], paras, f"{book} cover")
         for idx, page in enumerate(data["pages"]):
             rel = page.get("audio")
             if not rel:
                 continue
-            mp3 = os.path.join(book_dir, rel)
             paras = [p for p in page.get("paras", []) if str(p).strip()]
-            words = page_words(paras)
-            dur, spans = speech_spans(mp3)
-            words_t = timings_for(words, spans)
-            out_path = os.path.join(book_dir, rel.replace(".mp3", ".timing.json"))
-            with open(out_path, "w", encoding="utf-8") as f:
-                json.dump({"duration": round(dur, 3), "words": words_t}, f)
-            print(f"{book} page {idx + 1}: {len(words)} words, {dur:.1f}s, "
-                  f"{len(spans)} speech spans -> {os.path.basename(out_path)}")
+            write_timing(book_dir, rel, paras, f"{book} page {idx + 1}")
     return 0
 
 

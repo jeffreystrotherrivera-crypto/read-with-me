@@ -7,7 +7,8 @@
 <meta name="description" content="Read With Me: tap any word, ask why, and get kid-friendly answers — on-device first, with Firebase AI Logic hybrid inference for the big questions. Featuring picture books by Jeff Rivera.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Nunito:wght@400;700;800;900&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#2a1660">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
 </head>
@@ -25,14 +26,21 @@
 <main id="libraryView">
   <section class="hero">
     <div class="hero-text">
-      <h1 class="hello">Free &amp; original picture books for kids!</h1>
+      <p class="hero-eyebrow">✨ A read-along library for curious kids</p>
+      <h1 class="hello">Free &amp; original <span class="grad-word">picture books</span> for kids!</h1>
       <p class="sub">Picture books by <strong>Jeff Rivera</strong>. Read along together — tap any word while you read and I’ll explain it, right here on this device.</p>
+      <ul class="hero-chips">
+        <li>🔊 Real read-aloud voices</li>
+        <li>👆 Tap any word to learn it</li>
+        <li>🔒 No ads · No accounts</li>
+      </ul>
     </div>
     <div class="hero-covers" aria-hidden="true">
       <img class="tilt-l" src="books/um-mommy/cover.jpg" alt="">
       <img class="tilt-r" src="books/stinky/cover.jpg" alt="">
     </div>
   </section>
+  <h2 class="section-title">Pick a story to read together</h2>
   <div id="bookCards" class="book-cards" aria-live="polite">Loading books…</div>
   <p class="ai-status-line" id="libraryAiStatus"></p>
 </main>
